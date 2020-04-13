@@ -1,4 +1,5 @@
 import java.sql.*;
+import java.util.ArrayList;
 public class DBManager {
   private final String name = "rshah25";
   private final String pass = "polkadots";
@@ -59,32 +60,60 @@ public class DBManager {
     close(conn);
   }
 
-  void close(Connection conn) {
+  public void close(Connection conn) {
     if(conn != null) {
       try { conn.close(); } catch(Throwable whatever) {}
     }
   }
-  void close(Statement st) {
+  public void close(Statement st) {
     if(st != null) {
       try { st.close(); } catch(Throwable whatever) {}
     }
   }
 
-  void close(ResultSet rs) {
+  public void close(ResultSet rs) {
     if(rs != null) {
       try { rs.close(); } catch(Throwable whatever) {}
     }
   }
-  public void executeUpdate(String query) throws SQLException{
+    public int executeUpdate(String query) throws SQLException{
+    int count;
+    boolean result;
     if(conn != null){
       Statement statement = conn.createStatement();
-      statement.execute(query);
+      result = statement.execute(query);
+      count = statement.getUpdateCount();
       close(statement);
     }
     else{
       System.err.println("DB Not Connected");
       throw new SQLException("DB Not Connected");
     }
+    return count;
+  }
+  public ArrayList<Integer> executeUpdateGetKeys(String query) throws SQLException{
+    ArrayList<Integer> results = new ArrayList<Integer>();
+    if(conn != null){
+      Statement statement = conn.createStatement();
+      statement.executeUpdate(query);
+      ResultSet rs = statement.getGeneratedKeys();
+      if(!rs.next()){
+        System.out.println("No value changed");
+      }
+      else{
+        do{
+          results.add(rs.getInt(1));
+        }
+        while(rs.next());
+      }
+      close(statement);
+      close(rs);
+    }
+    else{
+      System.err.println("DB Not Connected");
+      throw new SQLException("DB Not Connected");
+    }
+    return results;
   }
   public ResultSet executeQuery(String query) throws SQLException{
     if(conn != null){
@@ -105,15 +134,21 @@ public class DBManager {
     //Create Statements
     String createStaff = "CREATE TABLE IF NOT EXISTS Staff ("+
                             "staffID INT PRIMARY KEY,"+
+                            "name VARCHAR(30),"+
+                            "age INT,"+
+                            "email VARCHAR(30),"+
+                            "phone VARCHAR(10),"+
+                            "gender CHAR(1) CHECK (gender in ('M','F')),"+
+                            "address VARCHAR(100),"+
                             "joinDate DATE NOT NULL,"+
                             "username VARCHAR(30) UNIQUE NOT NULL,"+
                             "password VARCHAR(50) NOT NULL,"+
                             "salary INT"+
                           ")";
 
-    String createEditor = "CREATE TABLE IF NOT EXISTS Editor (staffID INT PRIMARY KEY, type CHAR(8) CHECK (type in (‘internal’,’external’)), FOREIGN KEY (staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE)";
+    String createEditor = "CREATE TABLE IF NOT EXISTS Editor (staffID INT PRIMARY KEY, type CHAR(8) CHECK (type in ('internal','external')), FOREIGN KEY (staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
-    String createAuthor = "CREATE TABLE IF NOT EXISTS Author (staffID INT PRIMARY KEY, type CHAR(8) CHECK (type in (‘internal’,’external’)), FOREIGN KEY (staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE)";
+    String createAuthor = "CREATE TABLE IF NOT EXISTS Author (staffID INT PRIMARY KEY, type CHAR(8) CHECK (type in ('internal','external')), FOREIGN KEY (staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE)";
     
     String createPubMgr = "CREATE TABLE IF NOT EXISTS PublicationManager (staffID INT PRIMARY KEY, FOREIGN KEY (staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
@@ -123,29 +158,29 @@ public class DBManager {
 
     String createPayment = "CREATE TABLE IF NOT EXISTS Payment (payID INT PRIMARY KEY, generatedDate DATE NOT NULL, amount INT NOT NULL, claimedDate DATE)";
 
-    String createGetsPaid = "CREATE TABLE IF NOT EXISTS GetsPaid ( staffID INT, payID INT, PRIMARY KEY (staffID, payID), FOREIGN KEY (staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY (staffID) REFERENCES Payment(payID) ON UPDATE CASCADE ON DELETE CASCADE)";
+    String createGetsPaid = "CREATE TABLE IF NOT EXISTS GetsPaid ( staffID INT, payID INT, PRIMARY KEY (staffID, payID), FOREIGN KEY (staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY (payID) REFERENCES Payment(payID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
     String createDistGetsPayment = "CREATE TABLE IF NOT EXISTS DistGetsPayment(distID INT, payID INT, PRIMARY KEY(distID, payID), FOREIGN KEY(distID) REFERENCES Distributors(distID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(payID) REFERENCES Payment(payID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
     String createPublication = "CREATE TABLE IF NOT EXISTS Publication(pubID INT,title VARCHAR(100) NOT NULL,PRIMARY KEY(pubID))";
     
-    String createBooks = "CREATE TABLE IF NOT EXISTS Books (pubID INT,topic VARCHAR(20) NOT NULL,PRIMARY KEY(pubID),FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE)";
+    String createBooks = "CREATE TABLE IF NOT EXISTS Books (pubID INT,topic VARCHAR(100) NOT NULL,PRIMARY KEY(pubID),FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE ON DELETE CASCADE)";
     
-    String createMagazines = "CREATE TABLE IF NOT EXISTS Magazines (pubID INT,periodicity VARCHAR(10) NOT NULL,PRIMARY KEY(pubID),FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE)";
+    String createMagazines = "CREATE TABLE IF NOT EXISTS Magazines (pubID INT,periodicity VARCHAR(100) NOT NULL,PRIMARY KEY(pubID),FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
-    String createJournals = "CREATE TABLE IF NOT EXISTS Journals (pubID INT,periodicity VARCHAR(10) NOT NULL,PRIMARY KEY(pubID),FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE)";
+    String createJournals = "CREATE TABLE IF NOT EXISTS Journals (pubID INT,periodicity VARCHAR(100) NOT NULL,PRIMARY KEY(pubID),FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
-    String createIssue = "CREATE TABLE IF NOT EXISTS Issue (issueID INT,pubID INT,date DATE,tabOfCont VARCHAR(100),PRIMARY KEY(issueID, pubID),FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE)";
+    String createIssue = "CREATE TABLE IF NOT EXISTS Issue (issueID INT,pubID INT,date DATE,tabOfCont VARCHAR(1000),PRIMARY KEY(issueID, pubID),FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE ON DELETE CASCADE)";
     
-    String createEdition = "CREATE TABLE IF NOT EXISTS Edition (editionID INT,pubID INT,ISBN CHAR(30) NOT NULL,date DATE NOT NULL,tabOfCont VARCHAR(100),UNIQUE(ISBN),PRIMARY KEY(editionID, pubID),FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE)";
+    String createEdition = "CREATE TABLE IF NOT EXISTS Edition (editionID INT,pubID INT,ISBN CHAR(30) NOT NULL,date DATE NOT NULL,tabOfCont VARCHAR(100),UNIQUE(ISBN),PRIMARY KEY(editionID, pubID),FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE ON DELETE CASCADE)";
     
     String createArticle = "CREATE TABLE IF NOT EXISTS Article (artID INT,topic VARCHAR(20) NOT NULL,title VARCHAR(100),date DATE,text VARCHAR(200),PRIMARY KEY(artID))";
 
     String createChapter = "CREATE TABLE IF NOT EXISTS Chapter (chapID INT PRIMARY KEY,title varchar(100) NOT NULL,date DATE,text varchar(1000))";
     
-    String createIssueContains = "CREATE TABLE IF NOT EXISTS IssueContains (pubID INT,issueID INT,artID INT,artNum INT NOT NULL,PRIMARY KEY (pubID, issueID, artID),FOREIGN KEY (pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE, FOREIGN KEY(issueID) REFERENCES Issue(issueID) ON UPDATE CASCADE,FOREIGN KEY(artID) REFERENCES Article(artID) ON UPDATE CASCADE)";
+    String createIssueContains = "CREATE TABLE IF NOT EXISTS IssueContains (pubID INT,issueID INT,artID INT,artNum INT NOT NULL,PRIMARY KEY (pubID, issueID, artID),FOREIGN KEY (pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(issueID) REFERENCES Issue(issueID) ON UPDATE CASCADE ON DELETE CASCADE,FOREIGN KEY(artID) REFERENCES Article(artID) ON UPDATE CASCADE ON DELETE CASCADE)";
     
-    String createEditionContains = "CREATE TABLE IF NOT EXISTS EditionContains (pubID INT,editionID INT,chapID INT,chapNum INT NOT NULL,PRIMARY KEY (pubID, editionID, chapID),FOREIGN KEY (pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE, FOREIGN KEY(editionID) REFERENCES Edition(editionID) ON UPDATE CASCADE, FOREIGN KEY(chapID) REFERENCES Chapter(chapID) ON UPDATE CASCADE)";
+    String createEditionContains = "CREATE TABLE IF NOT EXISTS EditionContains (pubID INT,editionID INT,chapID INT,chapNum INT NOT NULL,PRIMARY KEY (pubID, editionID, chapID),FOREIGN KEY (pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(editionID) REFERENCES Edition(editionID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(chapID) REFERENCES Chapter(chapID) ON UPDATE CASCADE ON DELETE CASCADE)";
     
     String createOrders = "CREATE TABLE IF NOT EXISTS Orders (orderID INT PRIMARY KEY, orderDate DATE NOT NULL, deliveryDate DATE NOT NULL, price float NOT NULL, numCopies INT NOT NULL, shipCost float NOT NULL)";
 
@@ -155,7 +190,7 @@ public class DBManager {
     
     String createOrderHasIssue = "CREATE TABLE IF NOT EXISTS OrderHasIssue (orderID INT, pubID INT, issueID INT, PRIMARY KEY(pubID , orderID, issueID), FOREIGN KEY(orderID) REFERENCES Orders(orderID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(pubID) REFERENCES Issue(pubID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(issueID) REFERENCES Issue(issueID) ON UPDATE CASCADE ON DELETE CASCADE)";
     
-    String createOrderHasEdition = "CREATE TABLE IF NOT EXISTS OrderHasEdition  (orderID INT, pubID INT, editionID INT, PRIMARY KEY(orderID, pubID, editionID), FOREIGN KEY(orderID) REFERENCES Orders(orderID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(pubID) REFERENCES Edition(pubID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(editionID) REFERENCES Edition(pubID) ON UPDATE CASCADE ON DELETE CASCADE)";
+    String createOrderHasEdition = "CREATE TABLE IF NOT EXISTS OrderHasEdition  (orderID INT, pubID INT, editionID INT, PRIMARY KEY(orderID, pubID, editionID), FOREIGN KEY(orderID) REFERENCES Orders(orderID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(pubID) REFERENCES Edition(pubID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(editionID) REFERENCES Edition(editionID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
     String createDistMgrCreateUpdate = "CREATE TABLE IF NOT EXISTS  DistMngCreateUpdate(staffID INT, distID INT, PRIMARY KEY(staffID, distID), FOREIGN KEY(staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(distID) REFERENCES Distributors(distID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
@@ -163,12 +198,18 @@ public class DBManager {
 
     String createEnter = "CREATE TABLE IF NOT EXISTS Enter(staffID INT, payID INT, PRIMARY KEY(staffID, payID), FOREIGN KEY(staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(payID) REFERENCES Payment(payID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
-    String createEditorAssigned = "CREATE TABLE IF NOT EXISTS EditorAssigned (staffID INT, pubID INT, PRIMARY KEY(staffID, pubID), FOREIGN KEY(staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE ON DELETE CASCADE)";
+    String createEditorAssigned = "CREATE TABLE IF NOT EXISTS EditorAssigned (staffID INT, pubID INT, PRIMARY KEY(staffID, pubID), FOREIGN KEY(staffID) REFERENCES Editor(staffID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(pubID) REFERENCES Publication(pubID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
     String createAuthAssignedArticle = "CREATE TABLE IF NOT EXISTS AuthorAssignedArticle (staffID INT, artID INT, PRIMARY KEY(staffID, artID), FOREIGN KEY(staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(artID) REFERENCES Article(artID) ON UPDATE CASCADE ON DELETE CASCADE)";
 
     String createAuthAssignedEdition = "CREATE TABLE IF NOT EXISTS AuthorAssignedEdition( staffID INT, editionID INT, pubID INT, PRIMARY KEY(staffID, editionID, pubID), FOREIGN KEY(staffID) REFERENCES Staff(staffID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(editionID) REFERENCES Edition(editionID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(pubID) REFERENCES Edition(pubID) ON UPDATE CASCADE ON DELETE CASCADE)";
     
+    String createBill = "CREATE TABLE IF NOT EXISTS Bill (billID INT PRIMARY KEY AUTO_INCREMENT, billAmt FLOAT NOT NULL, billDetails VARCHAR(1000) NOT NULL)";
+
+    String createDistGetsBill = "CREATE TABLE IF NOT EXISTS DistGetsBill(distID INT, billID INT, PRIMARY KEY(distID, billID), FOREIGN KEY(distID) REFERENCES Distributors(distID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(billID) REFERENCES Bill(billID) ON UPDATE CASCADE ON DELETE CASCADE)";
+
+    String createBillConnToOrder = "CREATE TABLE IF NOT EXISTS BillConnectedToOrder (billID INT, orderID INT, PRIMARY KEY(billID, orderID), FOREIGN KEY(billID) REFERENCES Bill(billID) ON UPDATE CASCADE ON DELETE CASCADE, FOREIGN KEY(orderID) REFERENCES Orders(orderID) ON UPDATE CASCADE ON DELETE CASCADE)";
+
     //Execute Statements
     try{
       startTransaction();
@@ -204,6 +245,10 @@ public class DBManager {
       executeUpdate(createEditorAssigned);
       executeUpdate(createAuthAssignedArticle);
       executeUpdate(createAuthAssignedEdition);
+
+      executeUpdate(createBill);
+      executeUpdate(createDistGetsBill);
+      executeUpdate(createBillConnToOrder);
       
   
       commitTransaction();
@@ -220,7 +265,8 @@ public class DBManager {
 
   public void insertSampleData() throws SQLException{
     //Insert Statements
-    String insertStaff = "INSERT INTO Staff VALUES (1,\"2020-01-10\",\"Mark\",\"Yr5eE-v\",23000), (2,\"2019-06-20\",\"Rob\",\"&jtPp5^\",NULL), (3,\"2017-01-30\",\"Kathy\",\"BT@4m+D\",26000), (4,\"2020-02-12\",\"Carole\",\"cwu#V9J\",NULL), (5,\"2018-08-30\",\"Clark\",\"f5%N9m4\",32000), (6,\"2016-09-12\",\"Veronica\",\"!Ue3%62\",33000), (7,\"2019-04-11\",\"Brian\",\"r^UD7Wg\",30000), (8,\"2015-11-22\",\"Michael\",\"mZ@2#us\",50000), (9,\"2016-10-02\",\"Ron\",\"@us*pk2\",44000), (10,\"2017-08-01\",\"Sam\",\"#k9*1ep\",24000), (11,\"2018-05-21\",\"Samuel\",\"ms$1w!t2\",26000), (12,\"2018-06-12\",\"Monica\",\"k3g#uk2\",31000), (13,\"2016-07-30\",\"Kelly\",\"t2@5m!k\",20000), (14,\"2015-10-14\",\"Shaun\",\"o0&2w_a\",16000), (15,\"2015-09-27\",\"Ashton\",\"j$23k!wq\",34000), (16,\"2017-04-17\",\"Ashley\",\"q1#3e@m*\",23000), (17,\"2014-08-23\",\"Elon\",\"m*d@1qz$\",25000)";  
+    String insertStaff = "INSERT INTO Staff(staffID,joinDate,username,password,salary) VALUES (1,\"2020-01-10\",\"Mark\",\"Yr5eE-v\",23000), (2,\"2019-06-20\",\"Rob\",\"&jtPp5^\",NULL), (3,\"2017-01-30\",\"Kathy\",\"BT@4m+D\",26000), (4,\"2020-02-12\",\"Carole\",\"cwu#V9J\",NULL), (5,\"2018-08-30\",\"Clark\",\"f5%N9m4\",32000), (6,\"2016-09-12\",\"Veronica\",\"!Ue3%62\",33000), (7,\"2019-04-11\",\"Brian\",\"r^UD7Wg\",30000), (8,\"2015-11-22\",\"Michael\",\"mZ@2#us\",50000), (9,\"2016-10-02\",\"Ron\",\"@us*pk2\",44000), (10,\"2017-08-01\",\"Sam\",\"#k9*1ep\",24000), (11,\"2018-05-21\",\"Samuel\",\"ms$1w!t2\",26000), (12,\"2018-06-12\",\"Monica\",\"k3g#uk2\",31000), (13,\"2016-07-30\",\"Kelly\",\"t2@5m!k\",20000), (14,\"2015-10-14\",\"Shaun\",\"o0&2w_a\",16000), (15,\"2015-09-27\",\"Ashton\",\"j$23k!wq\",34000), (16,\"2017-04-17\",\"Ashley\",\"q1#3e@m*\",23000), (17,\"2014-08-23\",\"Elon\",\"m*d@1qz$\",25000)";  
+  
 
     String insertEditor="INSERT INTO Editor VALUES (1, \"internal\"), (2, \"external\"), (9, \"internal\"), (10, \"external\")";
     
@@ -248,7 +294,7 @@ public class DBManager {
 
     String insertIssue = "INSERT INTO Issue (issueID, pubID, date,tabOfCont) VALUES (1,5,\"2019-12-12\",\"Article 1: Alloys of platinum and early transition metals as oxygen reduction electrocatalysts\"),(2,5,\"2019-12-12\",\"Article 1: Selling out on nature Article 2: The nature of the hydrated excess proton in water\"),(1,7,\"2017-04-16\",NULL),(2,8,\"2020-06-18\",NULL),(1,9,\"2014-06-11\",\"Article 1: Silo-Filler Disease: One Health System Experience and an Update of the Literature\"),(2,9,\"2019-04-21\",\"Article 1: A Systematic Review of Large Agriculture Vehicles Use and Crash Incidents on Public Roads\"),(1,10,\"2018-11-20\",NULL),(1,11,\"2016-07-30\",NULL)";
 
-    String insertArticle = "INSERT INTO Article (artID, topic, title,date, text) VALUES(1,\"agroscience\",\"Silo-Filler’s Disease\",\"2020-01-30\",\"Silo-filler’s disease, a life-threatening condition from exposure to silage.\"),(2,\"agroscience\",\" Review of Large Agriculture\",\"2016-11-20\",\"Agricultural vehicles are a common sight on rural public roads.\"),(3,\"nature\",\"Alloys of platinum\",\"2017-01-12\",\"The widespread use of low-temperature polymer electrolyte membrane fuel.\"),(4,\"nature\",\"Selling out on nature\",\"2016-09-30\",\"With scant evidence that market-based conservation works, argues Douglas J. McCauley.\"),(5,\"nature\",\"The nature of the hydrated excess proton in water\",\"2016-09-30\",\"Explanations for the anomalously high mobility of protons in liquid water began with Grotthuss's\")";
+    String insertArticle = "INSERT INTO Article (artID, topic, title,date, text) VALUES(1,\"agroscience\",\"Silo-Filler's Disease\",\"2020-01-30\",\"Silo-filler's disease, a life-threatening condition from exposure to silage.\"),(2,\"agroscience\",\" Review of Large Agriculture\",\"2016-11-20\",\"Agricultural vehicles are a common sight on rural public roads.\"),(3,\"nature\",\"Alloys of platinum\",\"2017-01-12\",\"The widespread use of low-temperature polymer electrolyte membrane fuel.\"),(4,\"nature\",\"Selling out on nature\",\"2016-09-30\",\"With scant evidence that market-based conservation works, argues Douglas J. McCauley.\"),(5,\"nature\",\"The nature of the hydrated excess proton in water\",\"2016-09-30\",\"Explanations for the anomalously high mobility of protons in liquid water began with Grotthuss's\")";
     
     String insertChapter = "INSERT INTO Chapter(chapID, title, date, text) VALUES (1, \"New Morning\", \"2020-01-20\", \"It is a beautiful morning.\"), (2, \"Realization\", \"2020-01-20\", \"Whoops!. I slept on the wrong side.\"), (3, \"Waking up\", \"2020-01-20\", \"I should get up now or I'll be late to the class.\"), (4, \"Good news\", \"2020-01-20\", \"But it's spring break! So, I can sleep!\"), (5, \"End\", \"2020-01-20\", \"The END\"), (6, \"Foreword\",\"2020-01-20\", \"I dedicate this to my husband Ed and my two kids Edd and Eddy.\")";
 
@@ -324,10 +370,57 @@ public class DBManager {
     } 
     catch (Exception e) {
       rollbackTransaction();
-      e.printStackTrace();
       System.out.println("Error when adding sample data");
-      throw new SQLException("Error when adding sample data");
     }
+  }
+  public void insertUsers(){
+    String query = null;
+    try{
+      //Insert Admin
+      startTransaction();
+      query = "INSERT INTO Staff(staffID,joinDate,username,password) VALUES (9991,NOW(),\"admin\",\"admin\")"; 
+      executeUpdate(query);
+      commitTransaction(); 
 
+      //Insert Publication Manager
+      startTransaction();
+      query = "INSERT INTO Staff(staffID,joinDate,username,password) VALUES (9992,NOW(),\"pub\",\"pub\")"; 
+      executeUpdate(query);
+      query = "INSERT INTO PublicationManager(staffID) VALUES (9992)";
+      executeUpdate(query);
+      commitTransaction(); 
+
+      //Insert Distribution Manager
+      startTransaction();
+      query = "INSERT INTO Staff(staffID,joinDate,username,password) VALUES (9993,NOW(),\"dist\",\"dist\")"; 
+      executeUpdate(query);
+      query = "INSERT INTO DistributionManager(staffID) VALUES (9993)";
+      executeUpdate(query);
+      commitTransaction(); 
+
+      //Insert Editor 
+      startTransaction();
+      query = "INSERT INTO Staff(staffID,joinDate,username,password) VALUES (9994,NOW(),\"editor\",\"editor\")"; 
+      executeUpdate(query);
+      query = "INSERT INTO Editor(staffID,type) VALUES (9994,\"internal\")";
+      executeUpdate(query);
+      commitTransaction(); 
+
+      //Insert Author
+      startTransaction();
+      query = "INSERT INTO Staff(staffID,joinDate,username,password) VALUES (9995,NOW(),\"author\",\"author\")"; 
+      executeUpdate(query);
+      query = "INSERT INTO Author(staffID,type) VALUES (9995,\"internal\")";
+      executeUpdate(query);
+      commitTransaction(); 
+    }
+    catch(Exception e){
+      try{
+      rollbackTransaction();
+      }
+      catch(Exception ex){
+
+      }
+    }
   }
 }
